@@ -181,6 +181,22 @@ Data sanitization tools require complete trust. Developed by **Frogsec Labs**, S
 
 ---
 
+## 🔮 Research Roadmap (v1.2 In Active Development)
+
+SaniGhost v1.0.0 establishes the foundation for deep local POSIX filesystem and database sanitization. Under active research and prototyping at Frogsec Labs for the v1.2 engineering cycle:
+
+- **Free-Space Pressure Flush (SSD FTL Wear-Leveling Mitigation):**
+  - *The Challenge:* Solid-state Flash Translation Layers (FTLs) remap logical blocks and retain stale data in over-provisioned NAND flash until garbage collection triggers.
+  - *The Research Vector:* Evaluating controlled, threshold-bounded allocation waves (`fallocate`) to drop volume headroom near the controller's garbage collection threshold, forcing physical NAND block retirement.
+- **Direct I/O DMA Memory Bypasses (`O_DIRECT`):**
+  - Bypassing the Linux Page Cache completely to ensure overwritten file blocks write straight from sector-aligned buffers to the physical storage controller without leaving dirty memory pages in OS buffers.
+- **Hardware Discard Verification (DZAT):**
+  - Probing Linux block device topologies (`/sys/block/*/queue/discard_zeroes_data`) to verify whether underlying SSD controllers guarantee Deterministic Read Zero After TRIM.
+- **Decoupled Network Orchestration:**
+  - Network-triggered sanitization for authorized incident response and red-team post-engagement hygiene, featuring asymmetric cryptographic command verification and independent daemonized execution resilient to network disconnects.
+
+---
+
 ## License
 
 This project is licensed under the **GNU General Public License v3.0 (GPLv3)**. See [LICENSE](LICENSE) for details.
