@@ -12,8 +12,8 @@ To verify that release artifacts have not been tampered with or modified in tran
 
 ### SHA-256 Checksums (`SHA256SUMS`)
 ```text
-5de6f74c24fb4e87bc5764a94f85be0291e8454bdf961597e1423a6a6ba348fb  sanighost-v1.0.0-linux-x86_64.tar.gz
-3456386b2d11df918a66a5bc67d1dbd9d5d71fe1745a013b0c1cec49d1953a66  sanighost-v1.0.0-src.tar.gz
+b5178bcb355c96e306f9be9ae5fe3a401851a9889f332d006d6b0bdf9f86156d  sanighost-v1.0.0-linux-x86_64.tar.gz
+cc3557c00bc968f6793c2536c0c10ae9116b914c2859663e18a40ec07bb8641d  sanighost-v1.0.0-src.tar.gz
 ```
 
 ### Verification Command
