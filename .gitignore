@@ -1,2 +1,5 @@
 *.o
 sanighost
+sanighost_*
+build/
+.cache/
