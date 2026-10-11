@@ -47,27 +47,37 @@
 
 # SANIGHOST
 
-`SaniGhost` is a secure, local-only multi-pass file shredder, SQLite table sanitizer, and directory purging engine written in Python 3. It can be run on Desktop Linux, Android (Termux / P4A runtime), or embedded systems.
+`SaniGhost` is a secure, local-only multi-pass file shredder, SQLite table sanitizer, and directory purging engine. Written in high-performance **ANSI C/POSIX** for unbuffered raw block I/O, with an optional Python reference implementation.
 
 ## Key Features
 
-- **Multi-Pass Secure Shredding**: Configurable overwrite passes (0x00 zeros, 0xFF ones, random bytes) with explicit `os.fsync` buffer flushing to bypass OS page caching.
-- **SQLite Table Sanitization**: Purges data rows and runs `VACUUM` to zero out free-list storage prior to multi-pass database file shredding.
-- **Dry-Run Simulation**: Inspect targets, permissions, and byte counts without executing destructive operations (`--dry-run`).
-- **Permission Verification**: Validates read/write/access rights before initiating operations.
-- **Zero Network/Cloud Dependencies**: 100% local execution — no Firebase, telemetry, or remote dependencies.
-- **CLI & API Integration**: Full command-line tool with progress callbacks for Python / UI integration.
+- **High-Speed Native C Core**: Operates at direct hardware wire speed with zero runtime dependencies.
+- **Unbuffered POSIX Block Wiping**: Enforces synchronous I/O (`O_SYNC`), pattern overwrites (0x00 zeros, 0xFF ones, `/dev/urandom` bytes), and explicit `fdatasync()` flushes directly to disk.
+- **SQLite Table Sanitization**: Purges data rows and runs `VACUUM` to zero out free-list storage prior to database file shredding.
+- **Dry-Run Simulation**: Inspect targets, permissions, and byte counts without executing destructive operations (`-n, --dry-run`).
+- **Recursive Directory Wiping**: Cleans deep directory trees and removes directory structures (`-d, --dir`).
+- **Zero Network/Cloud Dependencies**: 100% local execution — no telemetry, cloud, or remote hooks.
 
-## Usage
+## Quickstart & Build
 
-### Command Line Interface (CLI)
+### 1. Compile Native Binary
+```bash
+make
+```
+
+To install system-wide to `/usr/local/bin`:
+```bash
+sudo make install
+```
+
+### 2. Command Line Interface (CLI)
 
 ```bash
-# Dry-run simulation (3-pass DoD style shredding)
-python3 sanighost.py --dirs /tmp/test_logs --dbs data.db --dry-run
+# Dry-run simulation (DoD 3-pass wipe)
+./sanighost -d /tmp/test_logs -b data.db --dry-run
 
-# Execute 3-pass secure purge without interactive prompt
-python3 sanighost.py --dirs /tmp/cache --files sensitive.log --passes 3 --yes
+# Execute unbuffered 3-pass wipe without confirmation prompt
+./sanighost -f sensitive.log -d /tmp/cache -b app.db -p 3 -y
 ```
 
 ### Python API
