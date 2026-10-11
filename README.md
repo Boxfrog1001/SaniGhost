@@ -169,6 +169,21 @@ SECURITY OPTIONS:
 
 ---
 
+## 🛡️ Security & Safety Guarantees (Why You Can Trust SaniGhost)
+
+Data sanitization tools require complete trust. Developed by **Frogsec Labs**, SaniGhost is engineered to protect your system while permanently erasing target data:
+
+- **100% Offline — Zero Network Surface:** SaniGhost binds zero network sockets, initiates no outbound requests, and executes zero remote daemons. It operates completely air-gapped; your data never leaves your local machine.
+- **Direct Kernel Syscalls (No Shell Injection):** Many simple deletion scripts rely on shell wrappers like `system("rm ...")`, which can be hijacked by maliciously crafted file paths. SaniGhost communicates directly with the Linux kernel using pure native C POSIX syscalls (`open`, `write`, `fdatasync`, `unlink`), making path-injection attacks impossible.
+- **Audited Memory Safety:** Rigorously audited under **AddressSanitizer (ASan)** and **UndefinedBehaviorSanitizer (UBSan)** to guarantee 0 buffer overflows, 0 memory leaks, and 0 segmentation faults.
+- **Safe Testing via `--dry-run` (`-n`):** Unsure about an operation? Use `--dry-run` to preview the exact file targets, byte counts, and slack-space calculations without modifying or destroying a single byte on disk.
+- **Verifiable Integrity:** Every release binary is accompanied by official cryptographic checksums (`SHA256SUMS`). You can verify byte-for-byte that the tool has not been tampered with or modified.
+
+---
+
 ## License
 
 This project is licensed under the **GNU General Public License v3.0 (GPLv3)**. See [LICENSE](LICENSE) for details.
+
+*Engineered by Frogsec Labs 🐸*
+
