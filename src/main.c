@@ -58,37 +58,39 @@ static const char *BANNER =
 "\033[38;2;70;0;180m⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⣿⣿⣿⣿\n"
 "\033[0m";
 
-static void print_help(const char *prog_name) {
-    printf("\033[38;2;0;255;128mSaniGhost\033[0m — \033[38;2;255;255;255mPermanently and securely erase files so they can never be recovered.\033[0m\n\n");
-    printf("\033[1;32mUSAGE:\033[0m\n");
-    printf("  %s [OPTIONS] [FILES / FOLDERS / DRAG & DROP...]\n\n", prog_name);
-    printf("\033[1;32mDRAG & DROP / DIRECT TARGETS:\033[0m\n");
-    printf("  %s secret.txt ./logs/ /media/usb/data/\n", prog_name);
-    printf("  \033[90m(Just drag any file or folder from your desktop into this terminal!)\033[0m\n\n");
-    printf("\033[1;32mWHAT TO ERASE (FLAGS):\033[0m\n");
-    printf("  -f, --file <path>       Erase a specific file (can specify multiple)\n");
-    printf("  -d, --dir <path>        Erase a whole folder and everything inside it\n");
-    printf("  -b, --db <path>         Erase and clean an SQLite database file\n\n");
-    printf("\033[38;2;200;160;255mSECURITY OPTIONS:\033[0m\n");
-    printf("  -p, --passes <num>      How many times to overwrite the data (Default: 3)\n");
-    printf("  -n, --dry-run           Test run only (shows what would happen without deleting)\n");
-    printf("  -y, --yes               Skip confirmation prompt\n");
-    printf("  -q, --quiet             Silent mode (don't print progress to the screen)\n");
-    printf("  -i, --interactive       Launch interactive drag-and-drop prompt\n");
-    printf("  -h, --help              Show this help menu\n\n");
-    printf("\033[38;2;175;120;255mEXAMPLES:\033[0m\n");
-    printf("  # Drag and drop any file directly:\n");
-    printf("  %s my_keys.pem\n\n", prog_name);
-    printf("  # Erase a folder with no confirmation prompt:\n");
-    printf("  %s -d ./old_logs/ -y\n\n", prog_name);
-    printf("  # Launch interactive drag-and-drop terminal session:\n");
-    printf("  %s\n\n", prog_name);
-}
-
 static double get_time_sec(void) {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
+}
+
+static void print_help(const char *prog_name) {
+    printf("\033[38;2;0;255;128mSaniGhost — Native POSIX High-Performance Forensic Data Sanitizer\033[0m\n\n");
+    printf("\033[38;2;255;255;255mUSAGE:\033[0m\n");
+    printf("  %s [OPTIONS] [FILES / FOLDERS / DRAG & DROP...]\n\n", prog_name);
+    printf("\033[38;2;200;160;255mQUICK ACTIONS:\033[0m\n");
+    printf("  %s                      Launch Interactive Operations Dashboard\n", prog_name);
+    printf("  %s <target>             Direct drag & drop file/folder shredding\n\n", prog_name);
+    printf("\033[38;2;200;160;255mCLI FLAGS:\033[0m\n");
+    printf("  -f, --file <path>       Erase a specific file\n");
+    printf("  -d, --dir <path>        Erase a whole folder recursively\n");
+    printf("  -b, --db <path>         Sanitize an SQLite database (.db, WAL, journal)\n");
+    printf("  -p, --passes <num>      Overwrite pass count (Default: 3, Full Deep: 5+)\n");
+    printf("  -n, --dry-run           Simulation mode (calculates slack space without writing)\n");
+    printf("  -y, --yes               Bypass confirmation prompts\n");
+    printf("  -q, --quiet             Silent mode\n");
+    printf("  -h, --help              Show this help menu\n\n");
+}
+
+static void clean_path_input(char *buf) {
+    size_t len = strlen(buf);
+    while (len > 0 && (buf[len - 1] == '\n' || buf[len - 1] == '\r' || buf[len - 1] == ' ')) {
+        buf[--len] = '\0';
+    }
+    if (len >= 2 && ((buf[0] == '\'' && buf[len - 1] == '\'') || (buf[0] == '"' && buf[len - 1] == '"'))) {
+        memmove(buf, buf + 1, len - 2);
+        buf[len - 2] = '\0';
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -105,21 +107,19 @@ int main(int argc, char *argv[]) {
     bool bypass_confirm = false;
 
     static struct option long_options[] = {
-        {"file",    required_argument, 0, 'f'},
-        {"dir",     required_argument, 0, 'd'},
-        {"db",      required_argument, 0, 'b'},
-        {"passes",  required_argument, 0, 'p'},
-        {"dry-run", no_argument,       0, 'n'},
-        {"yes",     no_argument,       0, 'y'},
+        {"file",        required_argument, 0, 'f'},
+        {"dir",         required_argument, 0, 'd'},
+        {"db",          required_argument, 0, 'b'},
+        {"passes",      required_argument, 0, 'p'},
+        {"dry-run",     no_argument,       0, 'n'},
+        {"yes",         no_argument,       0, 'y'},
         {"quiet",       no_argument,       0, 'q'},
-        {"interactive", no_argument,       0, 'i'},
         {"help",        no_argument,       0, 'h'},
         {0, 0, 0, 0}
     };
 
-    bool interactive_mode = false;
     int opt;
-    while ((opt = getopt_long(argc, argv, "f:d:b:p:nyqih", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "f:d:b:p:nyqh", long_options, NULL)) != -1) {
         switch (opt) {
             case 'f':
                 if (file_count < 256) files[file_count++] = optarg;
@@ -143,9 +143,6 @@ int main(int argc, char *argv[]) {
             case 'q':
                 config.verbose = false;
                 break;
-            case 'i':
-                interactive_mode = true;
-                break;
             case 'h':
             default:
                 puts(BANNER);
@@ -154,65 +151,110 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    /* Ingest any direct drag-and-drop positional arguments (e.g. ./sanighost file1.txt folder/) */
+    /* Ingest direct positional arguments (drag & drop execution) */
     for (int i = optind; i < argc; i++) {
         struct stat st;
-        if (stat(argv[i], &st) == 0) {
-            if (S_ISDIR(st.st_mode)) {
-                if (dir_count < 256) dirs[dir_count++] = argv[i];
-            } else {
-                if (file_count < 256) files[file_count++] = argv[i];
-            }
+        if (stat(argv[i], &st) == 0 && S_ISDIR(st.st_mode)) {
+            if (dir_count < 256) dirs[dir_count++] = argv[i];
         } else {
-            /* If not found yet, default to file target */
             if (file_count < 256) files[file_count++] = argv[i];
         }
     }
 
-    /* If -i specified or no targets provided, launch interactive drag-and-drop prompt mode */
-    if (interactive_mode || (file_count == 0 && dir_count == 0 && db_count == 0)) {
+    /* Interactive Operations Dashboard if launched with no arguments */
+    static char target_buffer[PATH_MAX];
+    if (file_count == 0 && dir_count == 0 && db_count == 0) {
         puts(BANNER);
-        printf("\033[38;2;0;255;128m[+] SaniGhost Drag & Drop Zone\033[0m\n");
-        printf("\033[38;2;255;255;255m    Drag and drop any file or folder from your desktop into this terminal,\n");
-        printf("    then press ENTER to securely erase it (or type 'q' to quit):\033[0m\n\n");
-        printf("\033[38;2;200;160;255mDROP TARGET >> \033[0m");
+        printf("\033[38;2;0;255;128m================================================================================\033[0m\n");
+        printf("\033[38;2;255;255;255m                       SANIGHOST FORENSIC DASHBOARD                             \033[0m\n");
+        printf("\033[38;2;0;255;128m================================================================================\033[0m\n");
+        printf("\033[38;2;200;160;255m  [1] FULL FORENSIC PURGE (All 5-Stages: 5-Passes + Slack + FTL + Thumbnails)\033[0m\n");
+        printf("\033[38;2;255;255;255m  [2] Quick Drag & Drop Zone (Drop file/folder directly)\033[0m\n");
+        printf("\033[38;2;255;255;255m  [3] Erase Entire Folder Recursively\033[0m\n");
+        printf("\033[38;2;255;255;255m  [4] Sanitize SQLite Database (.db, WAL, journal & VACUUM)\033[0m\n");
+        printf("\033[38;2;255;255;255m  [5] Simulation Test (Dry-Run Mode - Zero Disk Writes)\033[0m\n");
+        printf("\033[38;2;175;120;255m  [6] View Chain-of-Custody & Forensic Protection Specs\033[0m\n");
+        printf("\033[38;2;255;80;80m  [0] Exit\033[0m\n");
+        printf("\033[38;2;0;255;128m================================================================================\033[0m\n\n");
+        printf("\033[38;2;0;255;128mSELECT OPTION [1-6, 0] >> \033[0m");
         fflush(stdout);
 
-        static char input_buf[PATH_MAX];
-        if (!fgets(input_buf, sizeof(input_buf), stdin)) {
-            return 0;
-        }
+        char choice[32];
+        if (!fgets(choice, sizeof(choice), stdin)) return 0;
+        clean_path_input(choice);
 
-        /* Strip trailing newline and potential GUI shell quotes */
-        size_t len = strlen(input_buf);
-        while (len > 0 && (input_buf[len - 1] == '\n' || input_buf[len - 1] == '\r' || input_buf[len - 1] == ' ')) {
-            input_buf[--len] = '\0';
-        }
-
-        if (len == 0 || strcmp(input_buf, "q") == 0 || strcmp(input_buf, "exit") == 0) {
+        if (strcmp(choice, "0") == 0 || strcmp(choice, "q") == 0 || strcmp(choice, "exit") == 0) {
             printf("\033[38;2;175;120;255m[*] Exiting SaniGhost.\033[0m\n");
             return 0;
         }
 
-        /* Handle single/double quotes added by terminal drag-and-drop */
-        char *target_path = input_buf;
-        if ((target_path[0] == '\'' || target_path[0] == '"') && target_path[len - 1] == target_path[0]) {
-            target_path[len - 1] = '\0';
-            target_path++;
+        if (strcmp(choice, "6") == 0) {
+            printf("\n\033[38;2;0;255;128m[+] SaniGhost 5-Stage Chain-of-Custody Pipeline:\033[0m\n");
+            printf("  1. Synchronous Multi-Pass Overwrites (O_SYNC / fdatasync)\n");
+            printf("  2. Hardware Controller Write-Barrier Flush\n");
+            printf("  3. Pre-deletion 32-Character Hex Renaming (Dentry Table Sanitization)\n");
+            printf("  4. Timestamp & Length Zeroing (utimensat to epoch {0,0}; ftruncate to 0)\n");
+            printf("  5. Journal Flushing (parent dir fsync) & SSD Flash FTL Discard (FITRIM)\n");
+            printf("  6. FreeDesktop Canonical URI MD5 Thumbnail Cache Purge\n\n");
+            return 0;
         }
 
-        struct stat st;
-        if (stat(target_path, &st) == 0 && S_ISDIR(st.st_mode)) {
-            dirs[dir_count++] = target_path;
+        if (strcmp(choice, "1") == 0) {
+            /* Option 1: Full Forensice Purge */
+            config.passes = 5; /* Deep 5-pass DoD/NIST cycle */
+            printf("\n\033[38;2;0;255;128m[+] FULL FORENSIC PURGE ACTIVATED (5-Pass Synchronous Overwrites + FTL + Slack + Thumbnails)\033[0m\n");
+            printf("\033[38;2;255;255;255mEnter target path to purge (or drag & drop here): \033[0m");
+            fflush(stdout);
+            if (!fgets(target_buffer, sizeof(target_buffer), stdin)) return 0;
+            clean_path_input(target_buffer);
+        } else if (strcmp(choice, "2") == 0) {
+            printf("\n\033[38;2;0;255;128m[+] Drag & Drop Target (File or Directory): \033[0m");
+            fflush(stdout);
+            if (!fgets(target_buffer, sizeof(target_buffer), stdin)) return 0;
+            clean_path_input(target_buffer);
+        } else if (strcmp(choice, "3") == 0) {
+            printf("\n\033[38;2;0;255;128m[+] Enter Directory Path to Erase Recursively: \033[0m");
+            fflush(stdout);
+            if (!fgets(target_buffer, sizeof(target_buffer), stdin)) return 0;
+            clean_path_input(target_buffer);
+        } else if (strcmp(choice, "4") == 0) {
+            printf("\n\033[38;2;0;255;128m[+] Enter SQLite Database File (.db): \033[0m");
+            fflush(stdout);
+            if (!fgets(target_buffer, sizeof(target_buffer), stdin)) return 0;
+            clean_path_input(target_buffer);
+            dbs[db_count++] = target_buffer;
+        } else if (strcmp(choice, "5") == 0) {
+            config.dry_run = true;
+            printf("\n\033[38;2;255;200;0m[!] DRY-RUN SIMULATION (Zero Disk Writes)\033[0m\n");
+            printf("Enter target file or folder to test: ");
+            fflush(stdout);
+            if (!fgets(target_buffer, sizeof(target_buffer), stdin)) return 0;
+            clean_path_input(target_buffer);
         } else {
-            files[file_count++] = target_path;
+            printf("\033[1;31m[-] Invalid option.\033[0m\n");
+            return 1;
+        }
+
+        if (strlen(target_buffer) == 0) {
+            printf("\033[1;31m[-] No target specified.\033[0m\n");
+            return 1;
+        }
+
+        if (db_count == 0) {
+            struct stat st;
+            if (stat(target_buffer, &st) == 0 && S_ISDIR(st.st_mode)) {
+                dirs[dir_count++] = target_buffer;
+            } else {
+                files[file_count++] = target_buffer;
+            }
         }
     } else if (config.verbose) {
         puts(BANNER);
     }
 
     if (!bypass_confirm && !config.dry_run) {
-        printf("\033[38;2;255;70;70m[!] WARNING: This file will be forensically unretrievable. Are you sure? (y/N): \033[0m");
+        printf("\n\033[38;2;255;70;70m[!] WARNING: Target will be permanently and forensically unrecoverable.\033[0m\n");
+        printf("\033[38;2;255;255;255m    Proceed with permanent destruction? (y/N): \033[0m");
         fflush(stdout);
         char answer[16];
         if (!fgets(answer, sizeof(answer), stdin) || (answer[0] != 'y' && answer[0] != 'Y')) {
@@ -225,7 +267,7 @@ int main(int argc, char *argv[]) {
     stats.start_time = get_time_sec();
 
     if (config.verbose) {
-        printf("\033[38;2;0;255;128m[*] Initiating native POSIX forensic data sanitization...\033[0m\n");
+        printf("\n\033[38;2;0;255;128m[*] Initiating SaniGhost Forensic Chain-of-Custody Pipeline...\033[0m\n");
     }
 
     /* 1. Target files */
@@ -246,9 +288,11 @@ int main(int argc, char *argv[]) {
     stats.end_time = get_time_sec();
     double elapsed = stats.end_time - stats.start_time;
 
-    printf("\033[38;2;0;255;128m[+] Sanitization complete\033[0m in \033[38;2;255;255;255m%.3fs\033[0m. "
-           "\033[38;2;200;160;255mShredded %lu files\033[0m (\033[38;2;255;255;255m%lu bytes overwritten\033[0m, %lu DBs). "
-           "\033[38;2;175;120;255mErrors: %lu\033[0m\n",
+    printf("\n\033[38;2;0;255;128m[+] Sanitization complete\033[0m in \033[38;2;255;255;255m%.3fs\033[0m.\n"
+           "\033[38;2;200;160;255m    • Files shredded: %lu\033[0m\n"
+           "\033[38;2;200;160;255m    • Bytes overwritten: %lu bytes\033[0m\n"
+           "\033[38;2;200;160;255m    • SQLite DBs sanitized: %lu\033[0m\n"
+           "\033[38;2;175;120;255m    • Errors: %lu\033[0m\n",
            elapsed, (unsigned long)stats.files_shredded, (unsigned long)stats.bytes_overwritten, 
            (unsigned long)stats.dbs_sanitized, (unsigned long)stats.errors);
 
