@@ -1,8 +1,16 @@
 # SaniGhost
 
 <p align="center">
+  <img src="assets/cod_ghost_binary_art.jpg" alt="SaniGhost - Binary ASCII Ghost Banner" width="700"/>
+</p>
+
+<p align="center">
   <strong>Native POSIX High-Performance File, Database & Storage Sanitizer</strong><br>
   <em>Eliminates OS Metadata, Filesystem Journals, and Solid-State Flash Artifacts.</em>
+</p>
+
+<p align="center">
+  <sub>Artwork: <em>Binary ASCII CoD Ghost Art</em> by <a href="https://www.deviantart.com/psychovii/art/Binary-ASCII-CoD-Ghost-Art-671458969">PSYCHOVII</a></sub>
 </p>
 
 ---
