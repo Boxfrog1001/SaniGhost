@@ -40,9 +40,11 @@
 ## Features
 
 - **Deep Forensic Elimination:** Destroys file contents, directory entry tables (dentries), access/modification timestamps, and filesystem journals.
+- **Cluster Slack Space Zeroing:** Automatically rounds overwrite boundaries to the physical filesystem cluster/block size (`st.st_blksize`), destroying leftover file slack fragments hunted by signature carvers.
+- **Automatic FreeDesktop Thumbnail Hunter:** Generates canonical URI MD5 hashes and automatically scrubs cached image/document previews across `~/.cache/thumbnails/` (`normal`, `large`, `x-large`, `xx-large`, `fail`).
 - **Hardware-Level Solid-State Awareness:** Hooks `ioctl(FITRIM)` to signal the SSD controller's Flash Translation Layer (FTL) to unmap physical NAND flash blocks.
 - **SQLite Database Sanitizer:** Cleans and wipes SQLite tables, purges Write-Ahead Logs (`.wal`), shared memory (`.shm`), and rollback journals, followed by `VACUUM;`.
-- **Zero Dependencies:** Pure C99 with standard POSIX headers. Lightweight, blazing fast, and portable.
+- **Zero Dependencies:** Pure C99 with standard POSIX headers and native RFC 1321 MD5 URI hashing. Lightweight, blazing fast, and portable.
 - **Drag & Drop Terminal Support:** Drag any file or folder directly into the terminal window or launch the interactive drop-zone session.
 - **Permission Elevation:** Dynamically unlocks write permissions (`chmod S_IWUSR`) on read-only files before executing the overwrite sequence.
 - **Audited & Memory-Safe:** Verified with AddressSanitizer (ASan) and UndefinedBehaviorSanitizer (UBSan) for 0 leaks, 0 overflows, and clean heap reclamation.

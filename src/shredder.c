@@ -2,6 +2,7 @@
 #define _GNU_SOURCE
 
 #include "shredder.h"
+#include "thumbnail_wipe.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,11 +52,19 @@ int shred_file(const char *filepath, const ShredderConfig *config, SanitizeStats
 
     uint64_t size = (uint64_t)st.st_size;
 
+    /* Cluster Slack Space Intercept:
+     * Round target overwrite size up to the nearest filesystem block/cluster boundary
+     * (st.st_blksize, typically 4096 bytes) to scrub residual slack fragments.
+     */
+    blksize_t blk = (st.st_blksize > 0) ? st.st_blksize : 4096;
+    uint64_t overwrite_size = ((size + (uint64_t)blk - 1) / (uint64_t)blk) * (uint64_t)blk;
+    if (overwrite_size == 0 && size > 0) overwrite_size = size;
+
     if (config->dry_run) {
-        printf("\033[1;33m[DRY-RUN] Would shred (%lu bytes, %d passes): %s\033[0m\n", 
-               (unsigned long)size, config->passes, filepath);
+        printf("\033[1;33m[DRY-RUN] Would shred (%lu bytes [slack padded: %lu B], %d passes): %s\033[0m\n", 
+               (unsigned long)size, (unsigned long)overwrite_size, config->passes, filepath);
         stats->files_shredded++;
-        stats->bytes_overwritten += size * config->passes;
+        stats->bytes_overwritten += overwrite_size * config->passes;
         return 0;
     }
 
@@ -93,7 +102,7 @@ int shred_file(const char *filepath, const ShredderConfig *config, SanitizeStats
                 return -1;
             }
 
-            uint64_t bytes_left = size;
+            uint64_t bytes_left = overwrite_size;
             while (bytes_left > 0) {
                 size_t to_write = (bytes_left > CHUNK_SIZE) ? CHUNK_SIZE : (size_t)bytes_left;
 
@@ -123,7 +132,7 @@ int shred_file(const char *filepath, const ShredderConfig *config, SanitizeStats
 
             /* Explicit unbuffered POSIX sync to persistent block storage */
             fdatasync(fd);
-            stats->bytes_overwritten += size;
+            stats->bytes_overwritten += overwrite_size;
         }
 
         if (urandom_fd >= 0) close(urandom_fd);
@@ -134,6 +143,14 @@ int shred_file(const char *filepath, const ShredderConfig *config, SanitizeStats
     }
 
     /* ---- Chain‑of‑Custody Deletion Steps ---- */
+
+    /* 🔍 FreeDesktop Thumbnail Cache Scrub:
+     * Check if desktop environments (GNOME, KDE, XFCE) cached preview thumbnails of this file
+     * in ~/.cache/thumbnails/ and wipe them automatically to eliminate preview leakage.
+     */
+    if (strstr(filepath, "/.cache/thumbnails/") == NULL) {
+        wipe_associated_thumbnails(filepath, config, stats);
+    }
 
         /* 1️⃣ Random rename to obscure filename */
         char rand_name[33];
