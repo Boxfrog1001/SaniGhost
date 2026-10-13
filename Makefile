@@ -3,7 +3,7 @@ CFLAGS = -Wall -Wextra -O2 -std=c99
 LDFLAGS = -lsqlite3
 
 TARGET = sanighost
-SRC = src/main.c src/shredder.c src/sqlite_wipe.c src/dir_walker.c src/thumbnail_wipe.c
+SRC = src/main.c src/shredder.c src/sqlite_wipe.c src/dir_walker.c src/thumbnail_wipe.c src/direct_io_bypass.c src/ftl_pressure_flush.c
 OBJ = $(SRC:.c=.o)
 
 all: $(TARGET)

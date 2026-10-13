@@ -3,6 +3,8 @@
 
 #include "shredder.h"
 #include "thumbnail_wipe.h"
+#include "direct_io_bypass.h"
+#include "ftl_pressure_flush.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -69,19 +71,28 @@ int shred_file(const char *filepath, const ShredderConfig *config, SanitizeStats
     }
 
     if (size > 0) {
-        int fd = open(filepath, O_WRONLY | O_SYNC);
+        /* Level 3: Attempt direct kernel page cache bypass (O_DIRECT | O_SYNC) */
+        int fd = open_direct_io_target(filepath);
+        bool is_direct_io = true;
         if (fd < 0 && (errno == EACCES || errno == EPERM)) {
-            /* Edge case: Read-only file. Attempt to unlock write permissions dynamically */
             chmod(filepath, st.st_mode | S_IWUSR);
-            fd = open(filepath, O_WRONLY | O_SYNC);
+            fd = open_direct_io_target(filepath);
         }
 
         if (fd < 0) {
-            /* Retry without O_SYNC if filesystem restricts synchronous flags */
-            fd = open(filepath, O_WRONLY);
+            /* Fallback to standard synchronous I/O if filesystem prohibits O_DIRECT */
+            is_direct_io = false;
+            fd = open(filepath, O_WRONLY | O_SYNC);
             if (fd < 0 && (errno == EACCES || errno == EPERM)) {
                 chmod(filepath, st.st_mode | S_IWUSR);
+                fd = open(filepath, O_WRONLY | O_SYNC);
+            }
+            if (fd < 0) {
                 fd = open(filepath, O_WRONLY);
+                if (fd < 0 && (errno == EACCES || errno == EPERM)) {
+                    chmod(filepath, st.st_mode | S_IWUSR);
+                    fd = open(filepath, O_WRONLY);
+                }
             }
             if (fd < 0) {
                 fprintf(stderr, "\033[1;31m[-] Failed to open %s for writing: %s\033[0m\n", filepath, strerror(errno));
@@ -90,7 +101,10 @@ int shred_file(const char *filepath, const ShredderConfig *config, SanitizeStats
             }
         }
 
-        uint8_t buffer[CHUNK_SIZE];
+        /* Sector-aligned DMA buffer for O_DIRECT */
+        uint8_t *aligned_buf = (uint8_t *)alloc_aligned_block_buffer(CHUNK_SIZE, 4096);
+        uint8_t fallback_buf[CHUNK_SIZE];
+        uint8_t *buffer = aligned_buf ? aligned_buf : fallback_buf;
         int urandom_fd = open("/dev/urandom", O_RDONLY);
 
         for (int p = 1; p <= config->passes; p++) {
@@ -99,12 +113,17 @@ int shred_file(const char *filepath, const ShredderConfig *config, SanitizeStats
                 stats->errors++;
                 close(fd);
                 if (urandom_fd >= 0) close(urandom_fd);
+                if (aligned_buf) free_aligned_block_buffer(aligned_buf);
                 return -1;
             }
 
             uint64_t bytes_left = overwrite_size;
             while (bytes_left > 0) {
                 size_t to_write = (bytes_left > CHUNK_SIZE) ? CHUNK_SIZE : (size_t)bytes_left;
+                /* If using O_DIRECT, size must align to 512 or 4096 */
+                if (is_direct_io && (to_write % 4096 != 0)) {
+                    to_write = ((to_write + 4095) / 4096) * 4096;
+                }
 
                 if (p == 1) {
                     memset(buffer, 0x00, to_write);
@@ -125,17 +144,22 @@ int shred_file(const char *filepath, const ShredderConfig *config, SanitizeStats
                     stats->errors++;
                     close(fd);
                     if (urandom_fd >= 0) close(urandom_fd);
+                    if (aligned_buf) free_aligned_block_buffer(aligned_buf);
                     return -1;
                 }
-                bytes_left -= (uint64_t)written;
+                if ((uint64_t)written >= bytes_left) {
+                    bytes_left = 0;
+                } else {
+                    bytes_left -= (uint64_t)written;
+                }
             }
 
-            /* Explicit unbuffered POSIX sync to persistent block storage */
             fdatasync(fd);
             stats->bytes_overwritten += overwrite_size;
         }
 
         if (urandom_fd >= 0) close(urandom_fd);
+        if (aligned_buf) free_aligned_block_buffer(aligned_buf);
 
         /* Truncate to 0 before final removal */
         ftruncate(fd, 0);
