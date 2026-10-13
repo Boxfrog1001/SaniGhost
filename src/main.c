@@ -60,7 +60,8 @@ static double get_time_sec(void) {
 }
 
 static void print_help(const char *prog_name) {
-    printf("\033[38;2;0;255;128mSaniGhost — Native POSIX High-Performance Forensic Data Sanitizer\033[0m\n\n");
+    printf("\033[38;2;0;255;128mSaniGhost v1.2 — Native POSIX High-Performance Forensic Data Sanitizer\033[0m\n");
+    printf("\033[38;2;130;255;195mOfficial Multi-Level Hardware FTL & O_DIRECT Kernel Bypass Engine\033[0m\n\n");
     printf("\033[38;2;255;255;255mUSAGE:\033[0m\n");
     printf("  %s [OPTIONS] [FILES / FOLDERS / DRAG & DROP...]\n\n", prog_name);
     printf("\033[38;2;200;160;255mQUICK ACTIONS:\033[0m\n");
@@ -74,6 +75,7 @@ static void print_help(const char *prog_name) {
     printf("  -n, --dry-run           Simulation mode (calculates slack space without writing)\n");
     printf("  -y, --yes               Bypass confirmation prompts\n");
     printf("  -q, --quiet             Silent mode\n");
+    printf("  -v, --version           Print SaniGhost engine release version\n");
     printf("  -h, --help              Show this help menu\n\n");
 }
 
@@ -109,13 +111,23 @@ int main(int argc, char *argv[]) {
         {"dry-run",     no_argument,       0, 'n'},
         {"yes",         no_argument,       0, 'y'},
         {"quiet",       no_argument,       0, 'q'},
+        {"version",     no_argument,       0, 'v'},
         {"help",        no_argument,       0, 'h'},
         {0, 0, 0, 0}
     };
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "f:d:b:p:nyqh", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "f:d:b:p:nyqvh", long_options, NULL)) != -1) {
         switch (opt) {
+            case 'v':
+                puts(BANNER);
+                printf("\033[38;2;0;255;128mSaniGhost Release Version 1.2.0 (Native POSIX x86_64 / aarch64)\033[0m\n");
+                printf("  • Kernel Bypass: O_DIRECT DMA-aligned block write\n");
+                printf("  • Flash Architecture: Flash Translation Layer (FTL) Discard + ioctl(FITRIM)\n");
+                printf("  • Slack Elimination: Cluster block boundary auto-padding\n");
+                printf("  • Dentry Scrambler: 32-char cryptographic hex pre-unlink\n");
+                printf("  • SQLite Purge: WAL, SHM, and VACUUM sanitization\n");
+                return 0;
             case 'f':
                 if (file_count < 256) files[file_count++] = optarg;
                 break;
